@@ -42,7 +42,3 @@ Beautiful rainbow-colored output with modern programmer styling.
 ```bash
 ./install.sh
 ```
-
-## 📄 License
-
-MIT License 
