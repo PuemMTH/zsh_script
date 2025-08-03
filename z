@@ -1,0 +1,3 @@
+#!/bin/bash
+# Wrapper script for z.sh
+exec "$(dirname "$0")/z.sh" "$@" 

@@ -1,0 +1,49 @@
+# Clean completion for z command
+_z_complete() {
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    local prev=${COMP_WORDS[COMP_CWORD-1]}
+    
+    # All available commands (clean list)
+    local all_commands="add attach list ls delete clear search stats exec install install-help help"
+    
+    case $COMP_CWORD in
+        1)
+            # First argument - suggest all commands or numbers
+            if [[ "$cur" =~ ^[0-9]+$ ]]; then
+                # If it's a number, don't suggest anything
+                return 0
+            fi
+            COMPREPLY=( $(compgen -W "$all_commands" -- "$cur") )
+            ;;
+        2)
+            case "$prev" in
+                add|attach)
+                    # Suggest common commands
+                    COMPREPLY=( $(compgen -W "ls ps df du find grep cat echo wget curl git docker" -- "$cur") )
+                    ;;
+                delete|exec)
+                    # Show command numbers
+                    if [ -f "$HOME/.z_commands" ]; then
+                        local numbers=$(seq 1 $(wc -l < "$HOME/.z_commands" 2>/dev/null || echo 0))
+                        COMPREPLY=( $(compgen -W "$numbers" -- "$cur") )
+                    fi
+                    ;;
+                search)
+                    # Suggest common search terms
+                    COMPREPLY=( $(compgen -W "ls ps grep find cat echo" -- "$cur") )
+                    ;;
+                install)
+                    # Suggest supported shells
+                    COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
+                    ;;
+                list|ls|clear|stats|install-help|help)
+                    # These commands don't need additional arguments
+                    COMPREPLY=()
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+# Set up completion
+complete -F _z_complete z 
