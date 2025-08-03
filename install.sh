@@ -30,8 +30,27 @@ check_root() {
     fi
 }
 
-# ตรวจสอบ shell ที่ใช้งาน
+# ตรวจสอบ shell ที่ใช้งาน (เพิ่มรับ argument SHELL_TYPE_OVERRIDE)
 detect_shell() {
+    if [[ -n "$SHELL_TYPE_OVERRIDE" ]]; then
+        case "$SHELL_TYPE_OVERRIDE" in
+            zsh)
+                SHELL_TYPE="zsh"
+                SHELL_RC="$HOME/.zshrc"
+                ;;
+            bash)
+                SHELL_TYPE="bash"
+                SHELL_RC="$HOME/.bashrc"
+                ;;
+            *)
+                print_error "Unknown shell type: $SHELL_TYPE_OVERRIDE"
+                exit 1
+                ;;
+        esac
+        print_info "Shell selected by user: $SHELL_TYPE"
+        print_info "Configuration file: $SHELL_RC"
+        return
+    fi
     local current_shell
     current_shell=$(basename "$SHELL")
     
@@ -204,33 +223,44 @@ show_usage_info() {
     print_header
 }
 
-# ฟังก์ชันหลัก
+# ฟังก์ชันหลัก (เพิ่ม parse argument)
 main() {
     print_header
     echo -e "${WHITE}z Command Tool Installer${RESET}"
     print_header
-    
+    # parse arguments
+    SHELL_TYPE_OVERRIDE=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --shell)
+                shift
+                if [[ "$1" == "zsh" || "$1" == "bash" ]]; then
+                    SHELL_TYPE_OVERRIDE="$1"
+                else
+                    print_error "--shell must be 'zsh' or 'bash'"
+                    exit 1
+                fi
+                ;;
+            *)
+                print_warning "Unknown argument: $1"
+                ;;
+        esac
+        shift
+    done
     # ตรวจสอบ root
     check_root
-    
     # ตรวจสอบไฟล์
     check_files
-    
-    # ตรวจสอบ shell
+    # ตรวจสอบ shell (ส่ง SHELL_TYPE_OVERRIDE)
     detect_shell
-    
     # สร้างไดเรกทอรี
     create_install_dir
-    
     # ติดตั้งไฟล์
     install_files
-    
     # เพิ่ม PATH
     add_to_path
-    
     # ตั้งค่า completion
     setup_completion
-    
     # ทดสอบการติดตั้ง
     if test_installation; then
         show_usage_info
