@@ -1,49 +1,50 @@
-# Clean completion for z command
-_z_complete() {
-    local cur=${COMP_WORDS[COMP_CWORD]}
-    local prev=${COMP_WORDS[COMP_CWORD-1]}
-    
-    # All available commands (clean list)
-    local all_commands="add attach list ls delete clear search stats exec install install-help help"
-    
-    case $COMP_CWORD in
-        1)
-            # First argument - suggest all commands or numbers
-            if [[ "$cur" =~ ^[0-9]+$ ]]; then
-                # If it's a number, don't suggest anything
-                return 0
-            fi
-            COMPREPLY=( $(compgen -W "$all_commands" -- "$cur") )
+#compdef z
+
+_z() {
+    local curcontext="$curcontext" state line
+    typeset -A opt_args
+
+    _arguments -C \
+        '1: :->cmds' \
+        '*:: :->args'
+
+    case "$state" in
+        cmds)
+            local -a commands
+            commands=(
+                'add:Store a new command'
+                'attach:Store a command silently'
+                'list:List all stored commands'
+                'ls:List all stored commands'
+                'delete:Delete command by number'
+                'clear:Clear all commands'
+                'search:Search stored commands'
+                'stats:Show statistics'
+                'help:Show help message'
+            )
+            _describe -t commands 'z commands' commands
             ;;
-        2)
-            case "$prev" in
+        args)
+            case "$words[1]" in
                 add|attach)
-                    # Suggest common commands
-                    COMPREPLY=( $(compgen -W "ls ps df du find grep cat echo wget curl git docker" -- "$cur") )
+                    _message "Enter command to store"
                     ;;
-                delete|exec)
-                    # Show command numbers
+                delete)
+                    # แสดงหมายเลขคำสั่งที่มีอยู่
                     if [ -f "$HOME/.z_commands" ]; then
-                        local numbers=$(seq 1 $(wc -l < "$HOME/.z_commands" 2>/dev/null || echo 0))
-                        COMPREPLY=( $(compgen -W "$numbers" -- "$cur") )
+                        local numbers
+                        numbers=$(awk '{print NR}' "$HOME/.z_commands" | tr '\n' ' ')
+                        _describe -t numbers 'command numbers' numbers
+                    else
+                        _message "No commands stored yet"
                     fi
                     ;;
                 search)
-                    # Suggest common search terms
-                    COMPREPLY=( $(compgen -W "ls ps grep find cat echo" -- "$cur") )
-                    ;;
-                install)
-                    # Suggest supported shells
-                    COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
-                    ;;
-                list|ls|clear|stats|install-help|help)
-                    # These commands don't need additional arguments
-                    COMPREPLY=()
+                    _message "Enter search pattern"
                     ;;
             esac
             ;;
     esac
 }
 
-# Set up completion
-complete -F _z_complete z 
+compdef _z z 
