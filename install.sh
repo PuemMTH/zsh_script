@@ -1,194 +1,244 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # z Command Tool Installer
-# สีสำหรับข้อความ
-_RED='\033[0;31m'
-_GREEN='\033[0;32m'
-_YELLOW='\033[1;33m'
-_BLUE='\033[0;34m'
-_ORANGE='\033[38;5;208m'
-_WHITE='\033[1;37m'
-_RESET='\033[0m'
+# สคริปต์ติดตั้งสำหรับ z command tool
 
-_print_success() { echo -e "${_GREEN}✓ $1${_RESET}"; }
-_print_error()   { echo -e "${_RED}✗ $1${_RESET}"; }
-_print_info()    { echo -e "${_BLUE}ℹ $1${_RESET}"; }
-_print_warning() { echo -e "${_ORANGE}⚠ $1${_RESET}"; }
+# สีสำหรับข้อความ (rainbow colors as preferred by user)
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+ORANGE='\033[38;5;208m'
+WHITE='\033[1;37m'
+RESET='\033[0m'
+
+# ฟังก์ชันแสดงข้อความ
+print_success() { echo -e "${GREEN}✓ $1${RESET}"; }
+print_error()   { echo -e "${RED}✗ $1${RESET}"; }
+print_info()    { echo -e "${BLUE}ℹ $1${RESET}"; }
+print_warning() { echo -e "${ORANGE}⚠ $1${RESET}"; }
+print_header()  { echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"; }
 
 # ตรวจสอบว่าเป็น root หรือไม่
-if [ "$EUID" -eq 0 ]; then
-    _print_warning "ไม่แนะนำให้รัน installer ด้วย root privileges"
-    read -r -p "ต้องการดำเนินการต่อหรือไม่? (y/N) " resp
-    case "$resp" in
-        y|Y) ;;
-        *) exit 1 ;;
+check_root() {
+    if [[ $EUID -eq 0 ]]; then
+        print_warning "This script should not be run as root!"
+        print_info "Please run as a regular user."
+        exit 1
+    fi
+}
+
+# ตรวจสอบ shell ที่ใช้งาน
+detect_shell() {
+    local current_shell
+    current_shell=$(basename "$SHELL")
+    
+    case "$current_shell" in
+        "zsh")
+            SHELL_TYPE="zsh"
+            SHELL_RC="$HOME/.zshrc"
+            ;;
+        "bash")
+            SHELL_TYPE="bash"
+            SHELL_RC="$HOME/.bashrc"
+            ;;
+        *)
+            print_warning "Unsupported shell: $current_shell"
+            print_info "Defaulting to bash configuration"
+            SHELL_TYPE="bash"
+            SHELL_RC="$HOME/.bashrc"
+            ;;
     esac
-fi
+    
+    print_info "Detected shell: $SHELL_TYPE"
+    print_info "Configuration file: $SHELL_RC"
+}
 
-# กำหนด path สำหรับติดตั้ง
-INSTALL_DIR="$HOME/.local/bin"
-ZSH_COMPLETION_DIR="$HOME/.zsh/completions"
-BASH_COMPLETION_DIR="$HOME/.bash_completion.d"
+# ตรวจสอบไฟล์ที่จำเป็น
+check_files() {
+    local required_files=("z.sh" "_z_completion" "z_bash_completion.sh")
+    local missing_files=()
+    
+    for file in "${required_files[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            missing_files+=("$file")
+        fi
+    done
+    
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        print_error "Missing required files:"
+        for file in "${missing_files[@]}"; do
+            echo "  - $file"
+        done
+        print_info "Please run this script from the directory containing the z command tool files."
+        exit 1
+    fi
+    
+    print_success "All required files found"
+}
 
-_print_info "เริ่มการติดตั้ง z Command Tool..."
+# สร้างไดเรกทอรีสำหรับติดตั้ง
+create_install_dir() {
+    local install_dir="$HOME/.local/bin"
+    
+    if [[ ! -d "$install_dir" ]]; then
+        mkdir -p "$install_dir"
+        print_success "Created installation directory: $install_dir"
+    fi
+    
+    INSTALL_DIR="$install_dir"
+}
 
-# สร้าง directory ที่จำเป็น
-mkdir -p "$INSTALL_DIR"
-mkdir -p "$ZSH_COMPLETION_DIR"
-mkdir -p "$BASH_COMPLETION_DIR"
-
-# คัดลอกไฟล์ z.sh ไปยัง INSTALL_DIR
-if [ -f "z.sh" ]; then
-    cp z.sh "$INSTALL_DIR/z"
+# ติดตั้งไฟล์
+install_files() {
+    local script_dir
+    script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    
+    # คัดลอกไฟล์หลัก
+    cp "$script_dir/z.sh" "$INSTALL_DIR/z"
     chmod +x "$INSTALL_DIR/z"
-    _print_success "คัดลอก z.sh ไปยัง $INSTALL_DIR/z"
-else
-    _print_error "ไม่พบไฟล์ z.sh ในไดเรกทอรีปัจจุบัน"
-    exit 1
-fi
-
-# สร้าง tab completion สำหรับ zsh
-cat > "$ZSH_COMPLETION_DIR/_z" << 'EOF'
-#compdef z
-
-_z() {
-    local curcontext="$curcontext" state line
-    typeset -A opt_args
-
-    _arguments -C \
-        '1: :->cmds' \
-        '*:: :->args'
-
-    case "$state" in
-        cmds)
-            local -a commands
-            commands=(
-                'add:Store a new command'
-                'attach:Store a command silently'
-                'list:List all stored commands'
-                'ls:List all stored commands'
-                'delete:Delete command by number'
-                'clear:Clear all commands'
-                'search:Search stored commands'
-                'stats:Show statistics'
-                'help:Show help message'
-            )
-            _describe -t commands 'z commands' commands
-            ;;
-        args)
-            case "$words[1]" in
-                add|attach)
-                    _message "Enter command to store"
-                    ;;
-                delete)
-                    _message "Enter command number to delete"
-                    ;;
-                search)
-                    _message "Enter search pattern"
-                    ;;
-            esac
-            ;;
-    esac
-}
-
-compdef _z z
-EOF
-
-_print_success "สร้าง zsh completion ไฟล์"
-
-# สร้าง tab completion สำหรับ bash
-cat > "$BASH_COMPLETION_DIR/z" << 'EOF'
-_z_completion() {
-    local cur prev opts
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
-
-    if [[ ${cur} == * ]] ; then
-        case "${prev}" in
-            z)
-                opts="add attach list ls delete clear search stats help"
-                COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-                return 0
-                ;;
-            add|attach)
-                COMPREPLY=( $(compgen -c -- ${cur}) )
-                return 0
-                ;;
-            delete)
-                # แสดงหมายเลขคำสั่งที่มีอยู่
-                if [ -f "$HOME/.z_commands" ]; then
-                    local numbers
-                    numbers=$(awk '{print NR}' "$HOME/.z_commands" | tr '\n' ' ')
-                    COMPREPLY=( $(compgen -W "${numbers}" -- ${cur}) )
-                fi
-                return 0
-                ;;
-            search)
-                COMPREPLY=( $(compgen -c -- ${cur}) )
-                return 0
-                ;;
-        esac
+    print_success "Installed z command to: $INSTALL_DIR/z"
+    
+    # คัดลอกไฟล์ completion
+    if [[ "$SHELL_TYPE" == "zsh" ]]; then
+        cp "$script_dir/_z_completion" "$INSTALL_DIR/_z"
+        print_success "Installed zsh completion to: $INSTALL_DIR/_z"
+    else
+        cp "$script_dir/z_bash_completion.sh" "$INSTALL_DIR/z_bash_completion.sh"
+        print_success "Installed bash completion to: $INSTALL_DIR/z_bash_completion.sh"
     fi
 }
 
-complete -F _z_completion z
-EOF
-
-_print_success "สร้าง bash completion ไฟล์"
-
-# สร้างไฟล์สำหรับ source ใน shell configuration
-_print_info "สร้างไฟล์ configuration..."
-
-# สำหรับ zsh
-if [ -f "$HOME/.zshrc" ]; then
-    if ! grep -q "source.*z" "$HOME/.zshrc"; then
-        echo "" >> "$HOME/.zshrc"
-        echo "# z Command Tool" >> "$HOME/.zshrc"
-        echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$HOME/.zshrc"
-        echo "autoload -U compinit" >> "$HOME/.zshrc"
-        echo "compinit -d \$HOME/.zcompdump" >> "$HOME/.zshrc"
-        echo "fpath=(\$HOME/.zsh/completions \$fpath)" >> "$HOME/.zshrc"
-        _print_success "เพิ่ม configuration ลงใน ~/.zshrc"
+# เพิ่ม PATH ถ้าจำเป็น
+add_to_path() {
+    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+        print_info "Adding $INSTALL_DIR to PATH..."
+        
+        # เพิ่มใน shell configuration
+        echo "" >> "$SHELL_RC"
+        echo "# z command tool" >> "$SHELL_RC"
+        echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$SHELL_RC"
+        
+        print_success "Added PATH to $SHELL_RC"
     else
-        _print_warning "พบ z configuration ใน ~/.zshrc แล้ว"
+        print_info "PATH already includes $INSTALL_DIR"
     fi
-else
-    _print_warning "ไม่พบ ~/.zshrc - กรุณาเพิ่ม PATH และ completion เอง"
-fi
+}
 
-# สำหรับ bash
-if [ -f "$HOME/.bashrc" ]; then
-    if ! grep -q "source.*z" "$HOME/.bashrc"; then
-        echo "" >> "$HOME/.bashrc"
-        echo "# z Command Tool" >> "$HOME/.bashrc"
-        echo "export PATH=\"\$HOME/.local/bin:\$PATH\"" >> "$HOME/.bashrc"
-        echo "if [ -f \$HOME/.bash_completion.d/z ]; then" >> "$HOME/.bashrc"
-        echo "    . \$HOME/.bash_completion.d/z" >> "$HOME/.bashrc"
-        echo "fi" >> "$HOME/.bashrc"
-        _print_success "เพิ่ม configuration ลงใน ~/.bashrc"
+# เพิ่มการโหลด completion
+setup_completion() {
+    if [[ "$SHELL_TYPE" == "zsh" ]]; then
+        # ตรวจสอบว่า fpath มี INSTALL_DIR หรือไม่
+        if ! grep -q "fpath=(\$fpath $INSTALL_DIR)" "$SHELL_RC" 2>/dev/null; then
+            echo "fpath=(\$fpath $INSTALL_DIR)" >> "$SHELL_RC"
+            echo "autoload -Uz compinit" >> "$SHELL_RC"
+            echo "compinit" >> "$SHELL_RC"
+            print_success "Added zsh completion setup to $SHELL_RC"
+        fi
     else
-        _print_warning "พบ z configuration ใน ~/.bashrc แล้ว"
+        # สำหรับ bash
+        if ! grep -q "source.*z_bash_completion.sh" "$SHELL_RC" 2>/dev/null; then
+            echo "source $INSTALL_DIR/z_bash_completion.sh" >> "$SHELL_RC"
+            print_success "Added bash completion setup to $SHELL_RC"
+        fi
     fi
-else
-    _print_warning "ไม่พบ ~/.bashrc - กรุณาเพิ่ม PATH และ completion เอง"
-fi
+}
 
-# ตรวจสอบ PATH
-if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    _print_warning "PATH ไม่รวม $INSTALL_DIR"
-    _print_info "กรุณาเพิ่ม export PATH=\"\$HOME/.local/bin:\$PATH\" ใน shell configuration ของคุณ"
-fi
+# ทดสอบการติดตั้ง
+test_installation() {
+    print_info "Testing installation..."
+    
+    # ทดสอบการโหลด z function
+    if source "$INSTALL_DIR/z" 2>/dev/null; then
+        if type z >/dev/null 2>&1; then
+            print_success "z command is available"
+        else
+            print_error "z command is not available"
+            return 1
+        fi
+    else
+        print_error "Failed to load z command"
+        return 1
+    fi
+    
+    # ทดสอบการสร้างไฟล์ commands
+    if [[ -f "$HOME/.z_commands" ]]; then
+        print_success "Commands file created: $HOME/.z_commands"
+    else
+        print_warning "Commands file not found (will be created on first use)"
+    fi
+    
+    return 0
+}
 
-_print_success "การติดตั้งเสร็จสิ้น!"
-_print_info ""
-_print_info "การใช้งาน:"
-_print_info "1. รีสตาร์ท terminal หรือรัน 'source ~/.zshrc' (zsh) หรือ 'source ~/.bashrc' (bash)"
-_print_info "2. ใช้คำสั่ง 'z help' เพื่อดูวิธีใช้งาน"
-_print_info "3. ใช้ Tab เพื่อ autocomplete คำสั่ง"
-_print_info ""
-_print_info "ไฟล์ที่ติดตั้ง:"
-_print_info "  - $INSTALL_DIR/z (executable)"
-_print_info "  - $ZSH_COMPLETION_DIR/_z (zsh completion)"
-_print_info "  - $BASH_COMPLETION_DIR/z (bash completion)"
-_print_info "  - $HOME/.z_commands (command storage)" 
+# แสดงข้อมูลการใช้งาน
+show_usage_info() {
+    print_header
+    print_info "Installation completed successfully!"
+    print_header
+    
+    echo -e "${WHITE}Next steps:${RESET}"
+    echo "1. Restart your terminal or run: source $SHELL_RC"
+    echo "2. Test the installation: z help"
+    echo ""
+    echo -e "${WHITE}Usage examples:${RESET}"
+    echo "  z add \"ls -la\"          # Store a command"
+    echo "  z list                    # List stored commands"
+    echo "  z 1                       # Execute command #1"
+    echo "  z search \"grep\"          # Search commands"
+    echo "  z stats                   # Show statistics"
+    echo ""
+    echo -e "${WHITE}Features:${RESET}"
+    echo "  ✓ Rainbow-colored output"
+    echo "  ✓ Programmer-style interface"
+    echo "  ✓ Persistent command storage"
+    echo "  ✓ Shell completion support"
+    echo "  ✓ Cross-platform compatibility"
+    echo ""
+    echo -e "${WHITE}Configuration:${RESET}"
+    echo "  Commands file: $HOME/.z_commands"
+    echo "  Installation: $INSTALL_DIR"
+    echo "  Shell config: $SHELL_RC"
+    print_header
+}
+
+# ฟังก์ชันหลัก
+main() {
+    print_header
+    echo -e "${WHITE}z Command Tool Installer${RESET}"
+    print_header
+    
+    # ตรวจสอบ root
+    check_root
+    
+    # ตรวจสอบไฟล์
+    check_files
+    
+    # ตรวจสอบ shell
+    detect_shell
+    
+    # สร้างไดเรกทอรี
+    create_install_dir
+    
+    # ติดตั้งไฟล์
+    install_files
+    
+    # เพิ่ม PATH
+    add_to_path
+    
+    # ตั้งค่า completion
+    setup_completion
+    
+    # ทดสอบการติดตั้ง
+    if test_installation; then
+        show_usage_info
+    else
+        print_error "Installation test failed. Please check the installation manually."
+        exit 1
+    fi
+}
+
+# รันฟังก์ชันหลัก
+main "$@" 
