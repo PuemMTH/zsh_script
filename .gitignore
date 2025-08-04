@@ -1,37 +1,21 @@
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
 
-# Editor files
+# Build
+build/
+dist/
+*.spec
+
+# IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
 
-# Temporary files
-*.tmp
-*.temp
-*.log
-
-# User data files (optional - uncomment if you don't want to track user commands)
-# .z_commands
-
-# Backup files
-*.bak
-*.backup
-
-# Shell history
-.bash_history
-.zsh_history
-.fish_history
-
-# Environment files
-.env
-.env.local
-.env.*.local 
+# OS
+.DS_Store
+Thumbs.db 
