@@ -1,185 +1,244 @@
-# z Command Tool
+# MyCLI
 
-A powerful command storage and execution tool with rainbow-colored output and programmer-style interface.
+A simple CLI application built with Python and Click library.
 
-## 🌈 Features
+## Features
 
-- **Persistent Command Storage**: Store and recall commands across sessions
-- **Rainbow-Colored Output**: Beautiful, colorful interface for better UX
-- **Programmer-Style Interface**: Clean, efficient command-line experience
-- **Shell Completion**: Full tab completion support for zsh and bash
-- **Cross-Platform**: Works on macOS, Linux, and other Unix-like systems
-- **Smart Directory Navigation**: Special handling for `cd` commands
-- **Search & Statistics**: Find commands and view usage statistics
+- Main command: `mycli`
+- Subcommands: `hello`, `goodbye`
+- Tab completion support
+- Shell completion installation
+- Standalone binary (no Python required)
 
-## 🚀 Quick Installation
+## Installation
 
+### Option 1: Install from Source (Development)
+
+1. Install dependencies:
 ```bash
-# Clone or download the files to your system
-# Then run the installer
-./install.sh
+uv sync
+```
+
+2. Install the CLI in development mode:
+```bash
+uv pip install -e .
+```
+
+3. Activate the virtual environment:
+```bash
+source .venv/bin/activate
+```
+
+### Option 2: Install Binary (Production)
+
+1. Build the binary:
+```bash
+uv add pyinstaller
+source .venv/bin/activate
+pyinstaller --onefile --name mycli mycli/cli.py
+```
+
+2. Install using the installer script:
+```bash
+chmod +x install_local.sh
+./install_local.sh
+```
+
+3. Install completion:
+```bash
+./install_completion.sh
 ```
 
 The installer will:
-- ✅ Detect your shell (zsh/bash)
-- ✅ Install to `~/.local/bin`
-- ✅ Configure PATH and completion
-- ✅ Test the installation
-- ✅ Provide usage instructions
+- Copy the binary to `~/.local/bin`
+- Add the directory to your PATH
+- Test the installation
 
-## 📋 Requirements
-
-- Bash or Zsh shell
-- Unix-like operating system (macOS, Linux, etc.)
-- Write permissions to `~/.local/bin` and shell configuration files
-
-## 🛠️ Manual Installation
-
-If you prefer manual installation:
-
-### 1. Copy Files
-```bash
-# Create installation directory
-mkdir -p ~/.local/bin
-
-# Copy the main script
-cp z.sh ~/.local/bin/z
-chmod +x ~/.local/bin/z
-
-# Copy completion files
-cp _z_completion ~/.local/bin/_z  # for zsh
-cp z_bash_completion.sh ~/.local/bin/z_bash_completion.sh  # for bash
-```
-
-### 2. Configure Shell
-
-#### For Zsh:
-Add to `~/.zshrc`:
-```bash
-export PATH="$PATH:~/.local/bin"
-fpath=($fpath ~/.local/bin)
-autoload -Uz compinit
-compinit
-```
-
-#### For Bash:
-Add to `~/.bashrc`:
-```bash
-export PATH="$PATH:~/.local/bin"
-source ~/.local/bin/z_bash_completion.sh
-```
-
-### 3. Reload Shell
-```bash
-source ~/.zshrc  # or ~/.bashrc
-```
-
-## 📖 Usage
+## Usage
 
 ### Basic Commands
 
 ```bash
-z add "ls -la"              # Store a command
-z list                       # List all stored commands
-z 1                          # Execute command #1
-z delete 1                   # Delete command #1
-z search "grep"              # Search commands
-z stats                      # Show statistics
-z help                       # Show help
+# Say hello with default name
+mycli hello
+
+# Say hello to a specific person
+mycli hello --name "Alice"
+
+# Say goodbye
+mycli goodbye
+
+# Show help
+mycli --help
+mycli hello --help
+mycli goodbye --help
 ```
 
-### Advanced Usage
+### Tab Completion
+
+To enable tab completion for the CLI:
 
 ```bash
-# Store commands with descriptions
-z add "cd ~/projects && ls"
-
-# Silent storage (no confirmation)
-z attach "git status"
-
-# Search for specific patterns
-z search "docker"
-
-# View usage statistics
-z stats
-
-# Clear all commands
-z clear
+# Install completion for your shell
+mycli --install-completion
 ```
 
-### Directory Navigation
+After installation, restart your terminal or run:
+- For zsh: `source ~/.zshrc`
+- For bash: `source ~/.bashrc`
 
-The tool has special handling for `cd` commands:
+Then you can use tab completion:
+```bash
+mycli <TAB>  # Shows available commands
+mycli hello --<TAB>  # Shows available options
+```
+
+## Development
+
+### Running in Development
 
 ```bash
-z add "cd ~/Documents"
-z 1  # Will change directory and show current path
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run directly with Python
+python mycli/cli.py hello --name "World"
+
+# Run with uv
+uv run mycli/cli.py hello --name "World"
+
+# Run the installed CLI
+mycli hello --name "World"
 ```
 
-## 📁 File Structure
-
-```
-zsh_script/
-├── z.sh                    # Main command tool
-├── _z_completion          # Zsh completion
-├── z_bash_completion.sh   # Bash completion
-├── install.sh             # Installer script
-└── README.md             # This file
-```
-
-## 🔧 Configuration
-
-### Commands File
-- **Location**: `~/.z_commands`
-- **Format**: One command per line
-- **Permissions**: User read/write
-
-### Installation Directory
-- **Default**: `~/.local/bin`
-- **Customizable**: Edit `install.sh` to change
-
-## 🐛 Troubleshooting
-
-### Command Not Found
-```bash
-# Check if z is in PATH
-which z
-
-# Reload shell configuration
-source ~/.zshrc  # or ~/.bashrc
-```
-
-### Completion Not Working
-```bash
-# For zsh: Check fpath
-echo $fpath
-
-# For bash: Check completion file
-ls -la ~/.local/bin/z_bash_completion.sh
-```
-
-### Permission Issues
-```bash
-# Make sure install directory is writable
-ls -la ~/.local/bin/
-
-# Fix permissions if needed
-chmod +x ~/.local/bin/z
-```
-
-## 🔄 Uninstallation
-
-To remove the tool:
+### Building Binary
 
 ```bash
-# Remove files
-rm ~/.local/bin/z
-rm ~/.local/bin/_z  # zsh
-rm ~/.local/bin/z_bash_completion.sh  # bash
+# Install PyInstaller
+uv add pyinstaller
 
-# Remove from shell configuration
-# Edit ~/.zshrc or ~/.bashrc and remove z-related lines
+# Build binary
+source .venv/bin/activate
+pyinstaller --onefile --name mycli mycli/cli.py
 
-# Remove commands file (optional)
-rm ~/.z_commands
+# Install completion
+./install_completion.sh
 ```
+
+### Testing the CLI
+
+```bash
+# Activate virtual environment first
+source .venv/bin/activate
+
+# Test hello command
+mycli hello
+# Output: Hello, World!
+
+mycli hello --name "Alice"
+# Output: Hello, Alice!
+
+# Test goodbye command
+mycli goodbye
+# Output: Goodbye!
+
+# Test help
+mycli --help
+mycli hello --help
+mycli goodbye --help
+
+# Test completion installation
+mycli --install-completion
+```
+
+### Project Structure
+
+```
+mycli/
+├── mycli/
+│   ├── __init__.py    # Package initialization
+│   └── cli.py         # Main CLI application
+├── dist/
+│   └── mycli          # Built binary
+├── install_local.sh    # Local installer script
+├── install_completion.sh # Completion installer
+├── uninstall.sh       # Uninstaller script
+├── pyproject.toml     # Project configuration
+├── README.md          # This file
+└── .venv/             # Virtual environment (created by uv)
+```
+
+## Requirements
+
+- Python 3.10+
+- Click library
+- uv (for dependency management)
+- PyInstaller (for binary builds)
+
+## Shell Support
+
+Currently supports:
+- zsh
+- bash
+
+The completion installation automatically detects your shell and installs the appropriate completion script.
+
+## Binary Installation
+
+The binary installation provides several advantages:
+
+- **No Python Required**: The binary is self-contained
+- **Easy Distribution**: Single file that can be shared
+- **Cross-Platform**: Works on different systems
+- **Automatic Setup**: Installer handles PATH and completion
+
+### Installer Scripts
+
+1. **install_local.sh**: Installs from local binary
+   ```bash
+   ./install_local.sh
+   ```
+
+2. **install_completion.sh**: Installs tab completion
+   ```bash
+   ./install_completion.sh
+   ```
+
+3. **uninstall.sh**: Removes MyCLI completely
+   ```bash
+   ./uninstall.sh
+   ```
+
+## Example Output
+
+```bash
+$ mycli hello
+Hello, World!
+
+$ mycli hello --name "Alice"
+Hello, Alice!
+
+$ mycli goodbye
+Goodbye!
+
+$ mycli --help
+Usage: mycli [OPTIONS] COMMAND [ARGS]...
+
+  MyCLI - A simple CLI application with hello and goodbye commands.
+
+Options:
+  --install-completion  Install shell completion
+  --help                Show this message and exit.
+
+Commands:
+  goodbye  Say goodbye.
+  hello    Say hello to someone.
+```
+
+## Binary Features
+
+- **Standalone**: No Python installation required
+- **Fast Startup**: Optimized binary execution
+- **Small Size**: ~9MB for macOS ARM64
+- **Cross-Platform**: Can be built for different OS/architectures
+- **Easy Uninstall**: Complete removal with uninstall script

@@ -1,226 +1,166 @@
 #!/bin/bash
 
-# z Command Tool Uninstaller
-# สคริปต์ถอนการติดตั้งสำหรับ z command tool
+# MyCLI Uninstaller Script
+# This script removes MyCLI binary and completion
 
-# สีสำหรับข้อความ (rainbow colors as preferred by user)
+set -e
+
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-ORANGE='\033[38;5;208m'
-WHITE='\033[1;37m'
-RESET='\033[0m'
+NC='\033[0m' # No Color
 
-# ฟังก์ชันแสดงข้อความ
-print_success() { echo -e "${GREEN}✓ $1${RESET}"; }
-print_error()   { echo -e "${RED}✗ $1${RESET}"; }
-print_info()    { echo -e "${BLUE}ℹ $1${RESET}"; }
-print_warning() { echo -e "${ORANGE}⚠ $1${RESET}"; }
-print_header()  { echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"; }
+# Configuration
+BINARY_NAME="mycli"
+INSTALL_DIR="$HOME/.local/bin"
 
-# ตรวจสอบ shell ที่ใช้งาน
+# Functions
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Detect shell
 detect_shell() {
-    local current_shell
-    current_shell=$(basename "$SHELL")
+    local current_shell=$(basename "$SHELL")
     
     case "$current_shell" in
         "zsh")
-            SHELL_TYPE="zsh"
-            SHELL_RC="$HOME/.zshrc"
+            echo "zsh"
             ;;
         "bash")
-            SHELL_TYPE="bash"
-            SHELL_RC="$HOME/.bashrc"
+            echo "bash"
             ;;
         *)
-            print_warning "Unsupported shell: $current_shell"
-            print_info "Defaulting to bash configuration"
-            SHELL_TYPE="bash"
-            SHELL_RC="$HOME/.bashrc"
+            if [[ -n "$ZSH_VERSION" ]]; then
+                echo "zsh"
+            elif [[ -n "$BASH_VERSION" ]]; then
+                echo "bash"
+            else
+                echo "unknown"
+            fi
+            ;;
+    esac
+}
+
+# Remove binary
+remove_binary() {
+    local binary_path="$INSTALL_DIR/$BINARY_NAME"
+    
+    if [[ -f "$binary_path" ]]; then
+        print_info "Removing binary: $binary_path"
+        rm -f "$binary_path"
+        print_success "Binary removed"
+    else
+        print_warning "Binary not found: $binary_path"
+    fi
+}
+
+# Remove completion
+remove_completion() {
+    local shell=$(detect_shell)
+    local rc_file=""
+    local completion_file=""
+    
+    case $shell in
+        "zsh")
+            rc_file="$HOME/.zshrc"
+            completion_file="$HOME/.mycli_completion.zsh"
+            ;;
+        "bash")
+            rc_file="$HOME/.bashrc"
+            completion_file="$HOME/.mycli_completion.bash"
+            ;;
+        *)
+            print_warning "Unknown shell: $shell"
+            return 1
             ;;
     esac
     
-    print_info "Detected shell: $SHELL_TYPE"
-    print_info "Configuration file: $SHELL_RC"
-}
-
-# ลบไฟล์ที่ติดตั้ง
-remove_files() {
-    local install_dir="$HOME/.local/bin"
-    local files_removed=0
-    
-    # ลบไฟล์หลัก
-    if [[ -f "$install_dir/z" ]]; then
-        rm "$install_dir/z"
-        print_success "Removed: $install_dir/z"
-        files_removed=$((files_removed + 1))
+    # Remove completion file
+    if [[ -f "$completion_file" ]]; then
+        print_info "Removing completion file: $completion_file"
+        rm -f "$completion_file"
+        print_success "Completion file removed"
     fi
     
-    # ลบไฟล์ completion
-    if [[ "$SHELL_TYPE" == "zsh" ]]; then
-        if [[ -f "$install_dir/_z" ]]; then
-            rm "$install_dir/_z"
-            print_success "Removed: $install_dir/_z"
-            files_removed=$((files_removed + 1))
+    # Remove completion from rc file
+    if [[ -f "$rc_file" ]]; then
+        print_info "Removing completion from: $rc_file"
+        
+        # Remove MyCLI completion lines
+        sed -i '' '/# MyCLI completion/,/source ~\/.mycli_completion/d' "$rc_file" 2>/dev/null || true
+        sed -i '' '/eval "$(_MYCLI_COMPLETE=source_zsh mycli)"/d' "$rc_file" 2>/dev/null || true
+        sed -i '' '/eval "$(_MYCLI_COMPLETE=source_bash mycli)"/d' "$rc_file" 2>/dev/null || true
+        
+        print_success "Completion removed from $rc_file"
+    fi
+}
+
+# Check if install directory is empty
+check_install_dir() {
+    if [[ -d "$INSTALL_DIR" ]] && [[ -z "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]]; then
+        print_info "Install directory is empty: $INSTALL_DIR"
+        read -p "Remove empty install directory? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            rmdir "$INSTALL_DIR"
+            print_success "Install directory removed"
         fi
-    else
-        if [[ -f "$install_dir/z_bash_completion.sh" ]]; then
-            rm "$install_dir/z_bash_completion.sh"
-            print_success "Removed: $install_dir/z_bash_completion.sh"
-            files_removed=$((files_removed + 1))
-        fi
-    fi
-    
-    if [[ $files_removed -eq 0 ]]; then
-        print_warning "No z command tool files found to remove"
     fi
 }
 
-# ลบการตั้งค่าใน shell configuration
-remove_shell_config() {
-    local temp_file
-    temp_file=$(mktemp)
-    
-    if [[ ! -f "$SHELL_RC" ]]; then
-        print_warning "Shell configuration file not found: $SHELL_RC"
-        return
-    fi
-    
-    # สร้างไฟล์ชั่วคราวโดยไม่รวมบรรทัดที่เกี่ยวกับ z command tool
-    local lines_removed=0
-    
-    while IFS= read -r line; do
-        # ข้ามบรรทัดที่เกี่ยวกับ z command tool
-        if [[ "$line" =~ ^[[:space:]]*#.*z[[:space:]]*command[[:space:]]*tool ]]; then
-            lines_removed=$((lines_removed + 1))
-            continue
-        elif [[ "$line" =~ ^[[:space:]]*export[[:space:]]+PATH.*\.local/bin ]]; then
-            lines_removed=$((lines_removed + 1))
-            continue
-        elif [[ "$line" =~ ^[[:space:]]*fpath.*\.local/bin ]]; then
-            lines_removed=$((lines_removed + 1))
-            continue
-        elif [[ "$line" =~ ^[[:space:]]*source.*z_bash_completion\.sh ]]; then
-            lines_removed=$((lines_removed + 1))
-            continue
-        else
-            echo "$line" >> "$temp_file"
-        fi
-    done < "$SHELL_RC"
-    
-    # แทนที่ไฟล์เดิม
-    mv "$temp_file" "$SHELL_RC"
-    
-    if [[ $lines_removed -gt 0 ]]; then
-        print_success "Removed $lines_removed z command tool configuration lines from $SHELL_RC"
-    else
-        print_info "No z command tool configuration found in $SHELL_RC"
-    fi
-}
-
-# ถามผู้ใช้ว่าต้องการลบไฟล์ commands หรือไม่
-ask_remove_commands() {
-    if [[ -f "$HOME/.z_commands" ]]; then
-        echo ""
-        print_warning "Commands file found: $HOME/.z_commands"
-        read -r -p "Do you want to remove the stored commands? (y/N) " resp
-        case "$resp" in
-            y|Y)
-                rm "$HOME/.z_commands"
-                print_success "Removed commands file: $HOME/.z_commands"
-                ;;
-            *)
-                print_info "Commands file preserved: $HOME/.z_commands"
-                ;;
-        esac
-    fi
-}
-
-# ตรวจสอบว่าไฟล์ยังคงอยู่หรือไม่
-check_remaining_files() {
-    local install_dir="$HOME/.local/bin"
-    local remaining_files=()
-    
-    if [[ -f "$install_dir/z" ]]; then
-        remaining_files+=("$install_dir/z")
-    fi
-    
-    if [[ "$SHELL_TYPE" == "zsh" ]] && [[ -f "$install_dir/_z" ]]; then
-        remaining_files+=("$install_dir/_z")
-    elif [[ "$SHELL_TYPE" == "bash" ]] && [[ -f "$install_dir/z_bash_completion.sh" ]]; then
-        remaining_files+=("$install_dir/z_bash_completion.sh")
-    fi
-    
-    if [[ ${#remaining_files[@]} -gt 0 ]]; then
-        print_warning "Some files could not be removed:"
-        for file in "${remaining_files[@]}"; do
-            echo "  - $file"
-        done
-        print_info "You may need to remove them manually."
-    fi
-}
-
-# แสดงข้อมูลการถอนการติดตั้ง
-show_uninstall_info() {
-    print_header
-    print_info "Uninstallation completed!"
-    print_header
-    
-    echo -e "${WHITE}What was removed:${RESET}"
-    echo "  ✓ z command tool files"
-    echo "  ✓ Shell configuration entries"
+# Show uninstall summary
+show_summary() {
+    echo ""
+    print_success "MyCLI uninstallation completed!"
+    echo ""
+    echo "Removed:"
+    echo "  ✓ Binary: $INSTALL_DIR/$BINARY_NAME"
     echo "  ✓ Completion files"
+    echo "  ✓ Completion from shell config"
     echo ""
-    echo -e "${WHITE}Next steps:${RESET}"
-    echo "1. Restart your terminal or run: source $SHELL_RC"
-    echo "2. The z command will no longer be available"
-    echo ""
-    echo -e "${WHITE}Note:${RESET}"
-    echo "  - Commands file was preserved (if you chose to keep it)"
-    echo "  - You can reinstall anytime by running ./install.sh"
-    print_header
+    echo "To complete the uninstallation:"
+    echo "1. Restart your terminal or run: source ~/.${shell}rc"
+    echo "2. The 'mycli' command will no longer be available"
 }
 
-# ฟังก์ชันหลัก
+# Main uninstall function
 main() {
-    print_header
-    echo -e "${WHITE}z Command Tool Uninstaller${RESET}"
-    print_header
+    echo "🗑️  MyCLI Uninstaller"
+    echo "====================="
     
-    # ตรวจสอบ shell
-    detect_shell
+    # Check if running as root
+    if [[ $EUID -eq 0 ]]; then
+        print_error "This script should not be run as root"
+        exit 1
+    fi
     
-    # ยืนยันการถอนการติดตั้ง
-    echo ""
-    print_warning "This will remove the z command tool from your system."
-    read -r -p "Are you sure you want to continue? (y/N) " resp
-    case "$resp" in
-        y|Y)
-            print_info "Proceeding with uninstallation..."
-            ;;
-        *)
-            print_info "Uninstallation cancelled."
-            exit 0
-            ;;
-    esac
+    # Remove binary
+    remove_binary
     
-    # ลบไฟล์
-    remove_files
+    # Remove completion
+    remove_completion
     
-    # ลบการตั้งค่า shell
-    remove_shell_config
+    # Check install directory
+    check_install_dir
     
-    # ถามเกี่ยวกับไฟล์ commands
-    ask_remove_commands
-    
-    # ตรวจสอบไฟล์ที่เหลือ
-    check_remaining_files
-    
-    # แสดงข้อมูล
-    show_uninstall_info
+    # Show summary
+    show_summary
 }
 
-# รันฟังก์ชันหลัก
+# Run main function
 main "$@" 
