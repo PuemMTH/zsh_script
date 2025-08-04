@@ -16,6 +16,9 @@ NC='\033[0m' # No Color
 BINARY_NAME="mycli"
 INSTALL_DIR="$HOME/.local/bin"
 
+# Prefix configuration - must match install script
+PREFIX="lan"
+
 # Functions
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -110,6 +113,36 @@ remove_completion() {
     fi
 }
 
+# Remove prefix function
+remove_prefix_function() {
+    local shell=$(detect_shell)
+    local rc_file=""
+    
+    case $shell in
+        "zsh")
+            rc_file="$HOME/.zshrc"
+            ;;
+        "bash")
+            rc_file="$HOME/.bashrc"
+            ;;
+        *)
+            print_warning "Unknown shell: $shell"
+            return 1
+            ;;
+    esac
+    
+    # Remove prefix function from rc file
+    if [[ -f "$rc_file" ]]; then
+        print_info "Removing $PREFIX function from: $rc_file"
+        
+        # Remove prefix function lines
+        sed -i '' "/# $PREFIX function for MyCLI/,/${PREFIX}() { if [[ -n \"\$1\" ]]; then eval \"\$(mycli run \"\$1\")\"; else mycli list; fi }/d" "$rc_file" 2>/dev/null || true
+        sed -i '' "/${PREFIX}() { if [[ -n \"\$1\" ]]; then eval \"\$(mycli run \"\$1\")\"; else mycli list; fi }/d" "$rc_file" 2>/dev/null || true
+        
+        print_success "$PREFIX function removed from $rc_file"
+    fi
+}
+
 # Check if install directory is empty
 check_install_dir() {
     if [[ -d "$INSTALL_DIR" ]] && [[ -z "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]]; then
@@ -125,6 +158,7 @@ check_install_dir() {
 
 # Show uninstall summary
 show_summary() {
+    local shell=$(detect_shell)
     echo ""
     print_success "MyCLI uninstallation completed!"
     echo ""
@@ -132,10 +166,11 @@ show_summary() {
     echo "  ✓ Binary: $INSTALL_DIR/$BINARY_NAME"
     echo "  ✓ Completion files"
     echo "  ✓ Completion from shell config"
+    echo "  ✓ $PREFIX function from shell config"
     echo ""
     echo "To complete the uninstallation:"
     echo "1. Restart your terminal or run: source ~/.${shell}rc"
-    echo "2. The 'mycli' command will no longer be available"
+    echo "2. The 'mycli' and '$PREFIX' commands will no longer be available"
 }
 
 # Main uninstall function
@@ -154,6 +189,9 @@ main() {
     
     # Remove completion
     remove_completion
+    
+    # Remove prefix function
+    remove_prefix_function
     
     # Check install directory
     check_install_dir
