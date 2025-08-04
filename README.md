@@ -162,6 +162,7 @@ mycli/
 │   └── mycli          # Built binary
 ├── install_local.sh    # Local installer script
 ├── install_completion.sh # Completion installer
+├── uninstall.sh       # Uninstaller script
 ├── pyproject.toml     # Project configuration
 ├── README.md          # This file
 └── .venv/             # Virtual environment (created by uv)
@@ -203,6 +204,11 @@ The binary installation provides several advantages:
    ./install_completion.sh
    ```
 
+3. **uninstall.sh**: Removes MyCLI completely
+   ```bash
+   ./uninstall.sh
+   ```
+
 ## Example Output
 
 ```bash
@@ -235,3 +241,4 @@ Commands:
 - **Fast Startup**: Optimized binary execution
 - **Small Size**: ~9MB for macOS ARM64
 - **Cross-Platform**: Can be built for different OS/architectures
+- **Easy Uninstall**: Complete removal with uninstall script
