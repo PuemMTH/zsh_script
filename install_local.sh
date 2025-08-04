@@ -17,6 +17,9 @@ BINARY_NAME="mycli"
 INSTALL_DIR="$HOME/.local/bin"
 SOURCE_BINARY="./dist/mycli"
 
+# Prefix configuration - can be changed here
+PREFIX="lan"
+
 # Completion will be installed using install_completion.sh
 
 # Functions
@@ -133,6 +136,38 @@ add_to_path() {
     print_success "Added $INSTALL_DIR to PATH"
 }
 
+# Add prefix function to shell config
+add_prefix_function() {
+    local shell=$(detect_shell)
+    local rc_file=""
+    
+    case $shell in
+        "zsh")
+            rc_file="$HOME/.zshrc"
+            ;;
+        "bash")
+            rc_file="$HOME/.bashrc"
+            ;;
+        *)
+            print_warning "Unknown shell: $shell. Please add $PREFIX function manually."
+            return 1
+            ;;
+    esac
+    
+    # Check if prefix function already exists
+    if grep -q "${PREFIX}()" "$rc_file"; then
+        print_info "$PREFIX function already exists in $rc_file"
+        return 0
+    fi
+    
+    # Add prefix function
+    print_info "Adding $PREFIX function to $rc_file..."
+    echo "" >> "$rc_file"
+    echo "# $PREFIX function for MyCLI" >> "$rc_file"
+    echo "${PREFIX}() { if [[ -n \"\$1\" ]]; then eval \"\$(mycli run \"\$1\")\"; else mycli list; fi }" >> "$rc_file"
+    print_success "Added $PREFIX function to $rc_file"
+}
+
 # Test installation
 test_installation() {
     print_info "Testing installation..."
@@ -167,17 +202,21 @@ show_usage() {
     echo "   mycli hello"
     echo "   mycli hello --name 'Your Name'"
     echo "   mycli goodbye"
+    echo "   $PREFIX desk    # Go to Desktop"
+    echo "   $PREFIX list    # Run ls -la"
     echo ""
     echo "Installation details:"
     echo "  Binary: $INSTALL_DIR/$BINARY_NAME"
     echo "  Shell config: ~/.${shell}rc"
     echo "  Completion: Auto-installed"
+    echo "  $PREFIX function: Auto-installed"
     echo ""
     echo "Features:"
     echo "  ✓ Standalone binary (no Python required)"
     echo "  ✓ Tab completion support"
     echo "  ✓ Cross-platform compatibility"
     echo "  ✓ Easy installation"
+    echo "  ✓ $PREFIX function for quick access"
 }
 
 # Main installation function
@@ -202,6 +241,9 @@ main() {
     
     # Add to PATH
     add_to_path
+    
+    # Add prefix function
+    add_prefix_function
     
     # Install completion
     install_completion
